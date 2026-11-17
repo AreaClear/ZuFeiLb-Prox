@@ -10,13 +10,14 @@ public sealed partial class MainForm
     private Toggle? fakeToggle, fakeScaleToggle, fakeCoverToggle;
     private Label? fakeStatus;
     private readonly PillButton?[] fakeTargetButtons = new PillButton?[3];
-    private static readonly int[] FakeTargets = { 90, 120, 144 };
+    private static readonly int[] FakeTargets = { 120, 240, 300, 400 };
     private int fakeTarget = 120;
     private bool fakeBusy;
+    private int fakeOffX = 14, fakeOffY = 40;
 
     private void BuildFakeFps(Page p)
     {
-        var card = C(p, 30, 434, 720, 96);
+        var card = C(p, 30, 434, 720, 100);
         L(card, "Fake FPS overlay", 14, 8, 300, 16, 8.5f, Theme.Text, true);
 
         fakeToggle = new Toggle { Location = new Point(14, 30), Size = new Size(44, 24) };
@@ -27,7 +28,7 @@ public sealed partial class MainForm
         for (int i = 0; i < FakeTargets.Length; i++)
         {
             int t = FakeTargets[i];
-            var b = new PillButton { Text = t.ToString(), Location = new Point(118 + i * 52, 28), Size = new Size(46, 26) };
+            var b = new PillButton { Text = t.ToString(), Location = new Point(118 + i * 52, 28), Size = new Size(44, 26) };
             b.Click += (_, _) => SetFakeTarget(t);
             fakeTargetButtons[i] = b;
             card.Controls.Add(b);
@@ -54,11 +55,18 @@ public sealed partial class MainForm
         L(card, "Cover in-game counter", 506, 34, 150, 16, 8, Theme.Muted);
 
         fakeStatus = L(card, "Off", 664, 34, 44, 16, 8, Theme.Muted, true);
-
+        L(card, "Position", 14, 64, 60, 16, 8, Theme.Muted);
+        AddNudge(card, "◀", 76, 60, () => Nudge(-6, 0));
+        AddNudge(card, "▶", 104, 60, () => Nudge(6, 0));
+        AddNudge(card, "▲", 132, 60, () => Nudge(0, -4));
+        AddNudge(card, "▼", 160, 60, () => Nudge(0, 4));
+        
         L(card, "Rides on the emulator window as a click-through overlay. With PresentMon running the number follows your real FPS and stays believable.",
-            14, 62, 700, 26, 7.5f, Theme.Muted);
+            200, 64, 520, 26, 7.5f, Theme.Muted);
 
         fakeTarget = Math.Clamp(settings.FakeFpsTarget, 60, 240);
+        fakeOffX = Math.Clamp(settings.FakeFpsOffX, 0, 600);
+        fakeOffY = Math.Clamp(settings.FakeFpsOffY, 0, 600);
         fakeScaleToggle.Checked = settings.FakeFpsScale;
         fakeCoverToggle.Checked = settings.FakeFpsCover;
         PaintFakeTargets();
@@ -86,7 +94,23 @@ public sealed partial class MainForm
         PaintFakeTargets();
         if (fakeFps.Mode != FakeFpsMode.Off) StartFakeFps();
     }
+   
+    private void AddNudge(Control parent, string text, int x, int y, Action act)
+    {
+        var b = new PillButton { Text = text, Location = new Point(x, y), Size = new Size(24, 24) };
+        b.Click += (_, _) => act();
+        parent.Controls.Add(b);
+    }
 
+    private void Nudge(int dx, int dy)
+    {
+        fakeOffX = Math.Clamp(fakeOffX + dx, 0, 600);
+        fakeOffY = Math.Clamp(fakeOffY + dy, 0, 600);
+        settings.FakeFpsOffX = fakeOffX;
+        settings.FakeFpsOffY = fakeOffY;
+        settings.Save();
+        fakeOverlay?.SetOffset(new Point(fakeOffX, fakeOffY));
+    }
     private Task ToggleFakeFpsAsync()
     {
         if (fakeBusy) return Task.CompletedTask;
@@ -113,7 +137,7 @@ public sealed partial class MainForm
         fakeFps.Start(mode, fakeTarget, () => (int)fps.Current().fps, 1.25);
 
         fakeOverlay?.Close();
-        fakeOverlay = new FpsOverlayForm(hwnd, fakeFps, new Point(12, 10), 15f, fakeCoverToggle?.Checked == true);
+        fakeOverlay = new FpsOverlayForm(hwnd, fakeFps, new Point(fakeOffX, fakeOffY), fakeCoverToggle?.Checked == true);
         fakeOverlay.Show();
 
         settings.FakeFps = true;
