@@ -19,6 +19,8 @@ internal sealed class AppSettings
     public int FakeFpsTarget { get; set; } = 120;
     public bool FakeFpsScale { get; set; } = true;
     public bool FakeFpsCover { get; set; } = true;
+    public int FakeFpsOffX { get; set; } = 14;
+    public int FakeFpsOffY { get; set; } = 40;
     public void AddLog(string message)
     {
         ChangeLog.Add($"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}");
