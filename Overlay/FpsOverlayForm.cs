@@ -9,14 +9,18 @@ public sealed class FpsOverlayForm : Form
     private struct RECT { public int Left, Top, Right, Bottom; }
 
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOACTIVATE = 0x10;
 
     private readonly IntPtr target;
     private readonly FakeFpsEngine engine;
-    private readonly Point offset;
     private readonly double scale;
     private readonly Label label = new();
     private readonly System.Windows.Forms.Timer tick = new();
     private readonly Random jitter = new();
+    private Point offset;
 
     protected override bool ShowWithoutActivation => true;
 
@@ -25,15 +29,14 @@ public sealed class FpsOverlayForm : Form
         get
         {
             var cp = base.CreateParams;
-            cp.ExStyle |= 0x00080000   // WS_EX_LAYERED
-                       | 0x00000020    // WS_EX_TRANSPARENT  (click-through)
-                       | 0x00000080    // WS_EX_TOOLWINDOW
-                       | 0x08000000;   // WS_EX_NOACTIVATE
+            cp.ExStyle |= 0x00080000 | 0x00000020 | 0x00000080 | 0x08000000;
             return cp;
         }
     }
 
-    public FpsOverlayForm(IntPtr target, FakeFpsEngine engine, Point offset, float fontSize = 15f, bool cover = false)
+    public void SetOffset(Point p) => offset = p;
+
+    public FpsOverlayForm(IntPtr target, FakeFpsEngine engine, Point offset, bool cover = false)
     {
         this.target = target;
         this.engine = engine;
@@ -44,16 +47,18 @@ public sealed class FpsOverlayForm : Form
         ShowInTaskbar = false;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
-        Size = new Size((int)(110 / scale), (int)(30 / scale));
+        Size = new Size((int)(124 / scale), (int)(30 / scale));
 
-        if (cover) { BackColor = Color.Black; Opacity = 0.55; }
+        if (cover) { BackColor = Color.Black; Opacity = 0.92; }
         else { BackColor = Color.FromArgb(0, 0, 1); TransparencyKey = Color.FromArgb(0, 0, 1); }
 
-        label.AutoSize = true;
-        label.ForeColor = Color.Lime;
+        label.AutoSize = false;
+        label.Dock = DockStyle.Fill;
+        label.TextAlign = ContentAlignment.MiddleLeft;
+        label.ForeColor = Color.White;
         label.BackColor = BackColor;
-        label.Font = new Font("Consolas", fontSize / (float)scale, FontStyle.Bold);
-        label.Location = new Point(2, 1);
+        label.Font = new Font("Consolas", 13f / (float)scale, FontStyle.Bold);
+        label.Padding = new Padding((int)(4 / scale), 0, 0, 0);
         Controls.Add(label);
 
         tick.Interval = 250;
@@ -72,11 +77,14 @@ public sealed class FpsOverlayForm : Form
         {
             if (!Visible) Show();
 
-            label.Text = $"{engine.Next()} FPS";
+            label.Text = $"FPS {engine.Next()}";
 
             if (GetWindowRect(target, out var r))
+            {
                 Location = new Point((int)((r.Left + offset.X) / scale),
-                                     (int)((r.Top + offset.Y) / scale));
+                                     (int)((r.Bottom - offset.Y) / scale));
+                SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+            }
         }
 
         tick.Interval = 160 + jitter.Next(0, 220);
