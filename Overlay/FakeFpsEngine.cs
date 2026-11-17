@@ -50,10 +50,9 @@ public sealed class FakeFpsEngine
         double ramp = Math.Min(1.0, clock.Elapsed.TotalSeconds / 1.5);
         value += (goal - value) * (0.18 + rng.NextDouble() * 0.34) * ramp;
 
-        if (rng.NextDouble() < 0.09) value -= 2 + rng.NextDouble() * 4;
+        if (rng.NextDouble() < 0.09) value -= 2 + target * 0.015 + rng.NextDouble() * 3;
 
-        double floor = Math.Max(goal - 9, goal * 0.82);
+        double floor = goal - Math.Max(6.0, goal * 0.05);
         value = Math.Clamp(value, floor, goal + 2);
-        return Current;
-    }
+        return Current;    }
 }
